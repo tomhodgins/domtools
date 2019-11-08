@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<title>DOMTools Tests</title>
+
+<style>
+  body {
+    line-height: 1.4;
+  }
+  code {
+    padding: 0.125em 0.25em;
+    background-color: rgb(255, 255, 200);
+  }
+</style>
+  
+<h1>DOMTools Tests</h1>
+<h2 id=pass>Tests passed:</h2>
+<ul></ul>
+<h2 id=fail>Tests failed:</h2>
+<ul></ul>
+
+<!--<script src=../index.es5.js></script>-->
+<script type=module>
+  import domtools from '../index.js'
+  Object.keys(domtools).forEach(func => window[func] = domtools[func])
+
+  var tests = [
+
+    // parse()
+    {
+      name: 'Parse: null input returns DocumentFragment object',
+      input: function() {
+        return domtools.parse().toString()
+      },
+      expected: '[object DocumentFragment]'
+    },
+    {
+      name: 'Parse: empty string returns DocumentFragment object',
+      input: function() {
+        return domtools.parse('').toString()
+      },
+      expected: '[object DocumentFragment]'
+    },
+    {
+      name: 'Parse: parsed string matches input',
+      input: function() {
+        return domtools.stringify(
+          domtools.parse('hello world')
+        )
+      },
+      expected: 'hello world'
+    },
+    {
+      name: 'Parse: parsed element matches input',
+      input: function() {
+        return domtools.stringify(
+          domtools.parse('<custom-element data-attribute="value">Text</custom-element>')
+        )
+      },
+      expected: '<custom-element data-attribute="value">Text</custom-element>'
+    },
+    {
+      name: 'Parse: can parse in HTML mode',
+      input: function() {
+        return domtools.parse('<custom-element></custom-element>', 'html').firstChild instanceof HTMLElement
+      },
+      expected: true
+    },
+    {
+      name: 'Parse: can parse in XML mode',
+      input: function() {
+        return domtools.parse('<custom-element></custom-element>', 'xml').firstChild instanceof Element
+        && domtools.parse('<custom-element></custom-element>', 'xml').firstChild instanceof HTMLElement === false
+      },
+      expected: true
+    },
+
+    // process()
+    {
+      name: 'Process: add text to &lt;b> element',
+      input: function() {
+        return domtools.stringify(
+          domtools.process(
+            domtools.parse('<a></a><b></b><c></c>'),
+            node => {
+              if (
+                node.nodeName
+                && node.nodeName === 'B'
+              ) {
+                node.textContent += 'test'
+              }
+            }
+          )
+        ).replace(/\s+/g, '')
+      },
+      expected: '<a></a><b>test</b><c></c>'.replace(/\s+/g, '')
+    },
+
+
+    // add()
+    {
+      name: 'Add: defaults',
+      input: function() {
+        return domtools.stringify(
+          domtools.add()
+        )
+      },
+      expected: ''
+    },
+    {
+      name: 'Add: add parsed tag to empty DocumentFragment',
+      input: function() {
+        return domtools.stringify(
+          domtools.add(
+            domtools.parse('<a>howdy</a>')
+          )
+        )
+      },
+      expected: '<a>howdy</a>'
+    },
+    {
+      name: 'Add: add HTMLElement tag to empty DocumentFragment',
+      input: function() {
+        return domtools.stringify(
+          domtools.add(
+            document.querySelector('title').cloneNode(true)
+          )
+        )
+      },
+      expected: document.querySelector('title').outerHTML
+    },
+    {
+      name: 'Add: add Element to Element',
+      input: function() {
+        return domtools.stringify(
+            domtools.add(
+              document.createElement('inner-tag'),
+              document.createElement('outer-tag')
+          )
+        )
+      },
+      expected: '<outer-tag><inner-tag></inner-tag></outer-tag>'
+    },
+    {
+      name: 'Add: add text to text',
+      input: function() {
+        return domtools.stringify(
+            domtools.add(
+              'world',
+              domtools.parse('hello ')
+          )
+        )
+      },
+      expected: 'hello \nworld'
+    },
+
+    // remove()
+    {
+      name: 'Remove: rules from Document',
+      input: function() {
+        return domtools.remove(
+          new DOMParser().parseFromString('<a></a><b></b><c></c>', 'text/html')
+        ).childNodes.length
+      },
+      expected: 0
+    },
+    {
+      name: 'Remove: rules from DocumentFragment',
+      input: function() {
+        return domtools.remove(
+          domtools.parse('<a></a><b></b>')
+        ).childNodes.length
+      },
+      expected: 0
+    },
+    {
+      name: 'Remove: element',
+      input: function() {
+        document.body.appendChild(document.createElement('removable-demo'))
+        domtools.remove(
+          document.querySelector('removable-demo')
+        )
+        return document.querySelectorAll('removable-demo').length
+      },
+      expected: 0
+    },
+
+    // stringify()
+    {
+      name: 'Stringify: default settings',
+      input: function() {
+        return domtools.stringify()
+      },
+      expected: document.documentElement.outerHTML
+    },
+    {
+      name: 'Stringify: &lt;a>test&lt;/a> as HTML',
+      input: function() {
+        return domtools.stringify(
+          domtools.parse('<a>test</a>')
+        ).replace(/\s/g, '')
+      },
+      expected: '<a>test</a>'.replace(/\s/g, '')
+    },
+    {
+      name: 'Stringify: &lt;a>test&lt;/a> as XML',
+      input: function() {
+        return domtools.stringify(
+          domtools.parse('<a>test</a>', 'xml')
+        ).replace(/\s/g, '')
+      },
+      expected: '<a>test</a>'.replace(/\s/g, '')
+    },
+    {
+      name: 'Stringify: &lt;input> as HTML',
+      input: function() {
+        return domtools.stringify(
+          domtools.parse('<input>', 'html')
+        ).replace(/\s/g, '')
+      },
+      expected: '<input>'.replace(/\s/g, '')
+    },
+    {
+      name: 'Stringify: &lt;input /> as &lt;input>&lt;/input> as XML',
+      input: function() {
+        return domtools.stringify(
+          domtools.parse('<input />', 'xml')
+        ).replace(/\s/g, '')
+      },
+      expected: '<input></input>'.replace(/\s/g, '')
+    },
+
+    // all()
+    {
+      name: 'All: gets some nodes',
+      input: function() {
+        return domtools.all().length > 0
+      },
+      expected: true
+    },
+
+
+    // filter()
+    {
+      name: 'Filter: default settings',
+      input: function() {
+        return JSON.stringify(
+          domtools.filter()
+        )
+      },
+      expected: '[]'
+    },
+    {
+      name: 'Filter: using Document object',
+      input: function() {
+        return domtools.filter(
+          document,
+          node => node.tagName === 'HEAD'
+        ).length
+      },
+      expected: 1
+    },
+    {
+      name: 'Filter: using Element',
+      input: function() {
+        return domtools.filter(
+          document.documentElement,
+          node => node.tagName === 'HEAD'
+        ).length
+      },
+      expected: 1
+    },
+    {
+      name: 'Filter: using Array of things',
+      input: function() {
+        return domtools.filter(
+          [document, document.documentElement],
+          node => node.tagName === 'HEAD'
+        ).length
+      },
+      expected: 2
+    },
+    {
+      name: 'Filter: filter nodes by type',
+      input: function() {
+        return domtools.filter(
+          domtools.parse('<a>Hello</a><b>World</b>'),
+          node => node.nodeType === 3
+        ).length
+      },
+      expected: 2
+    },
+    {
+      name: 'Filter: filter nodes by tag',
+      input: function() {
+        return domtools.filter(
+          domtools.parse('<a>Ayy</a><b>Bee</b><c>Cee</c>'),
+          node => node.nodeName === 'A'
+        ).length
+      },
+      expected: 1
+    },
+    {
+      name: 'Filter: filter nodes by text content',
+      input: function() {
+        return domtools.filter(
+          domtools.parse('<ul><li>demo<li>demonstration<li>example</ul>'),
+          node => node.data && node.data.includes('demo')
+        ).length
+      },
+      expected: 2
+    },
+
+    // tagName()
+    {
+      name: 'tagName: find tags that contain &lt;*custom*> in HTML',
+      input: function() {
+        return domtools.tagName(
+          'custom',
+          false,
+          domtools.parse(`
+            <html>
+              <custom-tag></custom-tag>
+              <custom-element></custom-element>
+              <custom></custom>
+              <that-last-one-was-invalid>lol</that-last-one-was-invalid>
+            </html>
+          `)
+        )[0].length
+      },
+      expected: 3
+    },
+    {
+      name: 'tagName: find tags that match &lt;custom> in HTML',
+      input: function() {
+        return domtools.tagName(
+          'custom',
+          true,
+          domtools.parse(`
+            <html>
+              <custom-tag></custom-tag>
+              <custom-element></custom-element>
+              <custom></custom>
+              <that-last-one-was-invalid>lol</that-last-one-was-invalid>
+            </html>
+          `)
+        )[0].length
+      },
+      expected: 1
+    },
+    {
+      name: 'tagName: find tags that contain &lt;*custom*> in XML',
+      input: function() {
+        return domtools.tagName(
+          'custom',
+          false,
+          domtools.parse(
+            `
+              <xml>
+                <custom-tag></custom-tag>
+                <custom-element></custom-element>
+                <custom></custom>
+                <that-last-one-was-invalid>lol</that-last-one-was-invalid>
+              </xml>
+            `,
+            'xml'
+          )
+        )[0].length
+      },
+      expected: 3
+    },
+    {
+      name: 'tagName: find tags that match &lt;custom> in XML',
+      input: function() {
+        return domtools.tagName(
+          'custom',
+          true,
+          domtools.parse(
+            `
+              <xml>
+                <custom-tag></custom-tag>
+                <custom-element></custom-element>
+                <custom></custom>
+                <that-last-one-was-invalid>lol</that-last-one-was-invalid>
+              </xml>
+            `,
+            'xml'
+          )
+        )[0].length
+      },
+      expected: 1
+    },
+    {
+      name: 'tagName: find tags that match &lt;head> in Document',
+      input: function() {
+        return domtools.tagName(
+          'head',
+          false,
+          document
+        )[0].length
+      },
+      expected: 1
+    },
+    {
+      name: 'tagName: find tags that match &lt;head> in Element',
+      input: function() {
+        return domtools.tagName(
+          'head',
+          false,
+          document.documentElement
+        )[0].length
+      },
+      expected: 1
+    },
+
+    // attributeName()
+    {
+      name: 'attributeName: find nodes with attribute names matching "id"',
+      input: function() {
+        return domtools.attributeName(
+          'id',
+          true,
+          domtools.parse('<a id=demo></a><b id=demonstration></b><c data-id=lol></a>')
+        )[0].length
+      },
+      expected: 2
+    },
+    {
+      name: 'attributeName: find nodes with attribute names containing "id"',
+      input: function() {
+        return domtools.attributeName(
+          'id',
+          false,
+          domtools.parse('<a id=demo></a><b id=demonstration></b><c data-id=lol></a>')
+        )[0].length
+      },
+      expected: 3
+    },
+
+    // attributeValue()
+    {
+      name: 'attributeName: find nodes with attribute values matching "demo"',
+      input: function() {
+        return domtools.attributeValue(
+          'demo',
+          true,
+          domtools.parse('<a id=demo></a><b id=demonstration></b><c data-id=lol></a>')
+        )[0].length
+      },
+      expected: 1
+    },
+    {
+      name: 'attributeName: find nodes with attribute values containing "demo"',
+      input: function() {
+        return domtools.attributeValue(
+          'demo',
+          false,
+          domtools.parse('<a id=demo></a><b id=demonstration></b><c data-id=lol></a>')
+        )[0].length
+      },
+      expected: 2
+    },
+
+    // textContent()
+    {
+      name: 'textContent: node whose text content matches "hello"',
+      input: function() {
+        return domtools.textContent(
+          'hello',
+          true,
+          domtools.parse(`
+            <a>hello world</a>
+            <a>hello</a>
+            <a>hallo</a>
+          `)
+        )[0].length
+      },
+      expected: 1
+    },
+    {
+      name: 'textContent: node whose text content includes "hello"',
+      input: function() {
+        return domtools.textContent(
+          'hello',
+          false,
+          domtools.parse(`
+            <a>hello world</a>
+            <a>hello</a>
+            <a>hallo</a>
+          `)
+        )[0].length
+      },
+      expected: 2
+    }
+  ]
+
+  var results = tests.reduce(
+    function(acc, test) {
+      test.result = test.input()
+      test.result === test.expected
+        ? acc.pass.push(test)
+        : acc.fail.push(test)
+      return acc
+    },
+    {pass: [], fail: []}
+  )
+
+  var passed = results.pass.length
+  var failed = results.fail.length
+  var total = passed + failed
+
+  // populate results to page
+  document.querySelector('#pass').textContent = 'Tests passed ' + passed + '/' + total + ':'
+  document.querySelector('#fail').textContent = 'Tests failed ' + failed + '/' + total + ':'
+
+  results.pass.forEach(function(test) {
+    const tag = document.createElement('li')
+    tag.innerHTML = [
+      '<details>',
+        '<summary>' + test.name + '</summary>',
+        '<h3>Test</h3>',
+        '<p><pre>' + test.input.toString().replace(/</g, '&lt;') + '</pre></p>',
+        '<h3>Expected</h3>',
+        '<p><code>' + test.expected.toString().replace(/</g, '&lt;') + '</code></p>',
+        '<h3>Result</h3>',
+        '<p><code>' + test.result.toString().replace(/</g, '&lt;') + '</code></p>',
+      '</details>'
+    ].join('')
+    return document.querySelector('#pass + ul').appendChild(tag)
+  })
+
+  results.fail.forEach(function(test) {
+    const tag = document.createElement('li')
+    tag.innerHTML = [
+      '<details>',
+        '<summary style=text-decoration:line-through>' + test.name + '</summary>',
+        '<h3>Test</h3>',
+        '<p><pre>' + test.input.toString().replace(/</g, '&lt;') + '</pre></p>',
+        '<h3>Expected</h3>',
+        '<p><code>' + test.expected.toString().replace(/</g, '&lt;') + '</code></p>',
+        '<h3>Result</h3>',
+        '<p><code>' + test.result.toString().replace(/</g, '&lt;') + '</code></p>',
+      '</details>'
+    ].join('')
+    return document.querySelector('#fail + ul').appendChild(tag)
+  })
+</script>
